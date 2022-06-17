@@ -20,7 +20,7 @@ crate-type = ["cdylib", "rlib"]
 egui = "0.18.0"
 eframe = { version = "0.18.0", features = ["persistence"] }
 serde = { version = "1", features = ["derive"] } # You only need this if you want app persistence
-chrono = "0.4.19"
+chrono = { version = "0.4.19", features = ["wasmbind"] }
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
@@ -30,7 +30,7 @@ tracing-subscriber = "0.3"
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1.6"
 tracing-wasm = "0.2"
-
+js-sys = "0.3.58"
 
 [profile.release]
 opt-level = 2 # fast and small wasm

@@ -1,6 +1,7 @@
 use std::f32::consts::PI;
 use egui::{global_dark_light_mode_switch, Pos2};
 use crate::clock::{draw_arc, draw_clock, draw_clock_timestamp};
+use crate::time_now;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -102,7 +103,7 @@ impl eframe::App for ProgressClockApp {
                 "Source code."
             ));
             egui::warn_if_debug_build(ui);
-            let now = chrono::Local::now().time();
+            let now = time_now().time();
             ui.label(format!("{}", now));
             let painter = ui.painter();
             // draw_clock(painter, ui.max_rect().center(), 100.0, 7.0, true, 20.0, 50.0);
