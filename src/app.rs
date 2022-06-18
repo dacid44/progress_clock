@@ -1,5 +1,6 @@
 use std::f32::consts::PI;
-use egui::{global_dark_light_mode_switch, Pos2};
+use chrono::{NaiveTime, Timelike};
+use egui::{Color32, global_dark_light_mode_switch, Layout, Pos2, Visuals};
 use crate::clock::{draw_arc, draw_clock, draw_clock_timestamp};
 use crate::time_now;
 
@@ -7,20 +8,17 @@ use crate::time_now;
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct ProgressClockApp {
-    // Example stuff:
-    label: String,
-
-    // this how you opt-out of serialization of a member
-    #[serde(skip)]
-    value: f32,
+    use_custom_time: bool,
+    custom_time: u32,
+    time_entry: (String, bool),
 }
 
 impl Default for ProgressClockApp {
     fn default() -> Self {
         Self {
-            // Example stuff:
-            label: "Hello World!".to_owned(),
-            value: 2.7,
+            use_custom_time: false,
+            custom_time: 45296, // 12:34:56 PM
+            time_entry: ("12:34:56".to_string(), true),
         }
     }
 }
@@ -30,7 +28,7 @@ impl ProgressClockApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         // This is also where you can customized the look at feel of egui using
         // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
-
+        cc.egui_ctx.set_visuals(Visuals::dark());
         // Load previous app state (if any).
         // Note that you must enable the `persistence` feature for this to work.
         if let Some(storage) = cc.storage {
@@ -50,15 +48,8 @@ impl eframe::App for ProgressClockApp {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        let Self { label, value } = self;
-
-        // Examples of how to create different panels and windows.
-        // Pick whichever suits you.
-        // Tip: a good default choice is to just keep the `CentralPanel`.
-        // For inspiration and more examples, go to https://emilk.github.io/egui
 
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            // The top panel is often a good place for a menu bar:
             egui::menu::bar(ui, |ui| {
                 ui.menu_button("File", |ui| {
                     if ui.button("Quit").clicked() {
@@ -70,26 +61,51 @@ impl eframe::App for ProgressClockApp {
         });
 
         egui::SidePanel::left("side_panel").show(ctx, |ui| {
-            ui.heading("Side Panel");
-
             ui.horizontal(|ui| {
-                ui.label("Write something: ");
-                ui.text_edit_singleline(label);
+                ui.checkbox(&mut self.use_custom_time, "Use custom time");
+                ui.with_layout(Layout::right_to_left(), |ui| {
+                    if ui.button("Set to current time").clicked() {
+                        let time = time_now().time();
+                        self.custom_time = time.num_seconds_from_midnight();
+                        self.time_entry = (
+                            time.format("%I:%M:%S").to_string(),
+                            time.hour12().0,
+                        );
+                    }
+                });
             });
-
-            ui.add(egui::Slider::new(value, 0.0..=10.0).text("value"));
-            if ui.button("Increment").clicked() {
-                *value += 1.0;
+            if ui.add(egui::Slider::new(
+                &mut self.custom_time, 0..=86399)
+                .show_value(false)
+            ).changed() {
+                let time = NaiveTime::from_num_seconds_from_midnight(self.custom_time, 0);
+                self.time_entry = (
+                    time.format("%I:%M:%S").to_string(),
+                    time.hour12().0,
+                );
             }
 
-            ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
-                ui.horizontal(|ui| {
-                    ui.spacing_mut().item_spacing.x = 0.0;
-                    ui.label("powered by ");
-                    ui.hyperlink_to("egui", "https://github.com/emilk/egui");
-                    ui.label(" and ");
-                    ui.hyperlink_to("eframe", "https://github.com/emilk/egui/tree/master/eframe");
-                });
+            ui.horizontal(|ui| {
+                let parsed_time = try_parse_time(
+                    &format!("{} {}", self.time_entry.0, if self.time_entry.1 { "AM" } else { "PM" }),
+                );
+                let text_changed = ui.add(egui::TextEdit::singleline(&mut self.time_entry.0)
+                    .text_color(if parsed_time.is_some() {
+                        Color32::GREEN
+                    } else {
+                        Color32::RED
+                    })
+                ).changed();
+                let pm_changed = ui.checkbox(&mut self.time_entry.1, "PM").changed();
+                if text_changed || pm_changed {
+                    let new_parsed_time = try_parse_time(
+                        &format!("{} {}", self.time_entry.0, if self.time_entry.1 { "PM" } else { "AM" }),
+                    );
+                    if let Some(t) = new_parsed_time
+                    {
+                        self.custom_time = t;
+                    }
+                };
             });
         });
 
@@ -103,11 +119,14 @@ impl eframe::App for ProgressClockApp {
                 "Source code."
             ));
             egui::warn_if_debug_build(ui);
-            let now = time_now().time();
-            ui.label(format!("{}", now));
+            let time = if self.use_custom_time {
+                NaiveTime::from_num_seconds_from_midnight(self.custom_time, 0)
+            } else {
+                time_now().time()
+            };
+            ui.label(format!("{}", time));
             let painter = ui.painter();
-            // draw_clock(painter, ui.max_rect().center(), 100.0, 7.0, true, 20.0, 50.0);
-            draw_clock_timestamp(painter, ui.max_rect().center(), 100.0, now);
+            draw_clock_timestamp(painter, ui.max_rect().center(), 100.0, time);
             ui.ctx().request_repaint();
         });
 
@@ -120,4 +139,11 @@ impl eframe::App for ProgressClockApp {
             });
         }
     }
+}
+
+fn try_parse_time(time_str: &str) -> Option<u32> {
+    NaiveTime::parse_from_str(&time_str, "%I:%M:%S %p")
+        .or(NaiveTime::parse_from_str(&time_str, "%I:%M %p"))
+        .map(|time| time.num_seconds_from_midnight())
+        .ok()
 }
