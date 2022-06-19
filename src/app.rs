@@ -1,7 +1,7 @@
 use std::f32::consts::PI;
 use chrono::{NaiveTime, Timelike};
-use egui::{Color32, global_dark_light_mode_switch, Layout, Pos2, Visuals};
-use crate::clock::{draw_arc, draw_clock, draw_clock_timestamp};
+use egui::{Color32, global_dark_light_mode_switch, Layout, Pos2, Slider, Visuals};
+use crate::clock::{draw_clock, draw_clock_timestamp};
 use crate::time_now;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -11,6 +11,7 @@ pub struct ProgressClockApp {
     use_custom_time: bool,
     custom_time: u32,
     time_entry: (String, bool),
+    clock_size: f32,
 }
 
 impl Default for ProgressClockApp {
@@ -19,6 +20,7 @@ impl Default for ProgressClockApp {
             use_custom_time: false,
             custom_time: 45296, // 12:34:56 PM
             time_entry: ("12:34:56".to_string(), true),
+            clock_size: 150.0,
         }
     }
 }
@@ -107,17 +109,11 @@ impl eframe::App for ProgressClockApp {
                     }
                 };
             });
+
+            ui.add(Slider::new(&mut self.clock_size, 50.0..=300.0).text("Clock size"));
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            // The central panel the region left after adding TopPanel's and SidePanel's
-
-            ui.heading("eframe template");
-            ui.hyperlink("https://github.com/emilk/eframe_template");
-            ui.add(egui::github_link_file!(
-                "https://github.com/emilk/eframe_template/blob/master/",
-                "Source code."
-            ));
             egui::warn_if_debug_build(ui);
             let time = if self.use_custom_time {
                 NaiveTime::from_num_seconds_from_midnight(self.custom_time, 0)
@@ -126,18 +122,15 @@ impl eframe::App for ProgressClockApp {
             };
             ui.label(format!("{}", time));
             let painter = ui.painter();
-            draw_clock_timestamp(painter, ui.max_rect().center(), 100.0, time);
+            draw_clock_timestamp(
+                painter,
+                ui.max_rect().center(),
+                self.clock_size,
+                time,
+                ctx.style().visuals.strong_text_color(),
+            );
             ui.ctx().request_repaint();
         });
-
-        if false {
-            egui::Window::new("Window").show(ctx, |ui| {
-                ui.label("Windows can be moved by dragging them.");
-                ui.label("They are automatically sized based on contents.");
-                ui.label("You can turn on resizing and scrolling if you like.");
-                ui.label("You would normally chose either panels OR windows.");
-            });
-        }
     }
 }
 

@@ -33,7 +33,8 @@ fn time_now() -> NaiveDateTime {
     let time = js_sys::Date::new_0();
     let ts_millis = time.get_time() - (time.get_timezone_offset() * 60_000.0);
     let ts_secs = (ts_millis as i64) / 1000;
-    let ts_ns = ((ts_millis as u32) % 1000) * 1_000_000;
+    // let ts_ns = ((ts_millis as u32) % 1000) * 1_000_000;
+    let ts_ns = 0;
     NaiveDateTime::from_timestamp(ts_secs, ts_ns)
 }
 
