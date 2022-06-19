@@ -62,7 +62,7 @@ impl eframe::App for ProgressClockApp {
             });
         });
 
-        egui::SidePanel::left("side_panel").show(ctx, |ui| {
+        egui::Window::new("Options").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.checkbox(&mut self.use_custom_time, "Use custom time");
                 ui.with_layout(Layout::right_to_left(), |ui| {
